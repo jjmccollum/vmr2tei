@@ -32,7 +32,7 @@ class Witness:
         """Returns a witness TEI XML element constructed from this Witness.
 
         Returns:
-            An XML element with attributes matching those of this Witness.
+            An XML Element with attributes matching those of this Witness.
         """
         xml = et.Element("witness", nsmap={None: tei_ns})
         xml.set("n", self.id)
