@@ -135,7 +135,7 @@ orthographic_reading_label_pattern = re.compile(r"^[a-z]+o\d*$")
 """
 Witness sort key function
 """
-def wit_sort_key(wit):
+def wit_sort_key(wit: Witness):
     wit_id = wit.id
     key_list = []
     # The first sort key is based on the type of witness:
@@ -167,94 +167,3 @@ def wit_sort_key(wit):
     if len(wit_id) > 0:
         key_list.append(wit_id)
     return tuple(key_list)
-
-"""
-Witness string parsing and manipulation routines
-"""
-
-"""
-Given a string of witness sigla, expand any base sigla followed by one or more suffixes in the same parentheses to the same sigla followed by each suffix
-"""
-def expand_parenthetical_suffixes(wit_str: str):
-    expanded_wit_str = wit_str
-    matches = witness_with_parentheses_pattern.findall(wit_str)
-    for match in matches:
-        wit = match[0]
-        suffixes = match[1].replace(" ", "").split(",")
-        expanded_wits = []
-        for suffix in suffixes:
-            expanded_wit = wit + suffix
-            expanded_wits.append(expanded_wit)
-        expanded_wit_str = expanded_wit_str.replace(match[0] + "(" + match[1] + ")", " ".join(expanded_wits))
-    return expanded_wit_str
-
-"""
-Given a versional witness siglum and a regex of prefixes to remove from it,
-returns a list of all prefixes identified in it.
-"""
-def split_versional_witnesses(siglum: str, regex: re.Pattern):
-    old_string = siglum
-    extracted_prefixes = []
-    prefix_found = True
-    while (prefix_found):
-        prefix_found = False
-        # If the current string contains a prefix to be extracted, then do so:
-        if regex.match(old_string):
-            prefix_found = True
-            prefix = regex.match(old_string).group()
-            old_string = old_string[len(prefix):]
-            extracted_prefixes.append(prefix)
-    return extracted_prefixes
-
-"""
-Given a string of witness sigla, normalize all versional sigla in the string.
-The witness string with the normalized versional sigla is returned.
-"""
-def normalize_versional_sigla(wit_str: str):
-    old_versional_sigla = []
-    normalized_versional_sigla = []
-    version_prefix = ""
-    # First, split the string on whitespace:
-    wits = wit_str.split()
-    for wit in wits:
-        # If we haven't entered the versional evidence block, then skip any entries that do not match the pattern of a versional evidence block:
-        if version_prefix == "" and not version_start_pattern.search(wit):
-            continue
-        # Otherwise, if this is the start of a new versional evidence block, then update the current version prefix, and look up the siglum replacement for the appropriate version:
-        if version_start_pattern.search(wit):
-            # If this siglum contains a colon, the the part before the colon is the new version prefix and should be saved for later,
-            # and the entire siglum is already correctly formatted:
-            if ":" in wit:
-                version_prefix = wit.split(":")[0]
-                version_suffix = wit.split(":")[1]
-                # The suffix may contain multiple sigla concatenated together, so extract these sigla first and then construct a replacement string for all of them:
-                versional_witness_regex = None
-                if version_prefix == "L":
-                    versional_witness_regex = latin_version_pattern
-                elif version_prefix == "S":
-                    versional_witness_regex = syriac_version_pattern
-                elif version_prefix == "K":
-                    versional_witness_regex = coptic_version_pattern
-                elif version_prefix == "Sl":
-                    versional_witness_regex = slavonic_version_pattern
-                old_sigla = split_versional_witnesses(version_suffix, versional_witness_regex)
-                new_sigla = []
-                for old_siglum in old_sigla:
-                    new_siglum = version_prefix + ":" + old_siglum
-                    new_sigla.append(new_siglum)
-                normalized_siglum = " ".join(new_sigla)
-                old_versional_sigla.append(wit)
-                normalized_versional_sigla.append(normalized_siglum)
-            # Otherwise, treat the siglum as a singleton versional siglum and add it to the list:
-            else:
-                version_prefix = wit
-                normalized_siglum = version_prefix + ":" + wit
-                old_versional_sigla.append(wit)
-                normalized_versional_sigla.append(normalized_siglum)
-        # Otherwise, assume we are still in the block of a previous version:
-        else:
-            normalized_siglum = version_prefix + ":" + wit
-            old_versional_sigla.append(wit)
-            normalized_versional_sigla.append(normalized_siglum)
-    normalized_versional_sigla_str = wit_str.replace(" ".join(old_versional_sigla), " ".join(normalized_versional_sigla))
-    return normalized_versional_sigla_str
