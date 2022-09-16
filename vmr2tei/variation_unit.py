@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
+import time # to time calculations for users
 from typing import List
-from lxml import etree as et  # for reading TEI XML inputs
+from lxml import etree as et # for reading TEI XML inputs
 
-from common import *
-from reading import Reading
+from .common import *
+from .reading import Reading
 
 class VariationUnit:
     """Base class for storing TEI XML variation unit data internally.
@@ -16,25 +17,30 @@ class VariationUnit:
         readings: A list of Readings contained in this VariationUnit.
     """
 
-    def __init__(self, loc: str = None, sequence: str = None, readings: List[Reading] = [], verbose: bool = False):
-        """Constructs a new VariationUnit instance from the TEI XML input.
+    def __init__(self, xml: et.Element, singular_to_subreading: bool = False, verbose: bool = False):
+        """Constructs a new VariationUnit instance from a VMR XML segment element.
 
         Args:
-            loc: A string representing the location of this VariationUnit (as a verse reference).
-            sequence: A string representing the starting and ending indices of this VariationUnit in the lemma for the verse.
-            readings: A List of Readings contained in this VariationUnit.
-            verbose: An optional boolean flag indicating whether or not to print status updates.
+            xml: A VMR XML segment element whose segmentReading children all have normalized witness lists.
+            singular_to_subreading: An optional flag indicating whether or not to set each segmentReading child's type to "subreading" 
+            if the reading does not already have a type and has support from at most one witness.
+            verbose: An optional flag indicating whether or not to print status updates.
         """
-        # Combine the loc, from, and to attributes into a single ID:
-        self.id = loc + "/" + app_from
-        if app_to != app_from:
-            self.id += "-" + app_to
+        t0 = time.time()
+        # Combine the segment's verse and wordsegs attributes into a single ID:
+        self.id = ""
+        if xml.get("verse") is not None:
+            self.id += xml.get("verse")
+            if xml.get("wordsegs") is not None:
+                self.id += "/" + xml.get("wordsegs")
         # Initialize its list of readings:
         self.readings = []
-        # Now parse the app element to populate these data structures:
-        self.parse(xml, verbose)
+        for segment_reading in xml.xpath(".//segmentReading"):
+            rdg = Reading(segment_reading, singular_to_subreading, verbose)
+            self.readings.append(rdg)
+        t1 = time.time()
         if verbose:
-            print("New VariationUnit (id: %s, %d readings)" % (self.id, len(self.readings)))
+            print(f"New VariationUnit (id: {self.id}, {len(self.readings)} readings) constructed in {(t1-t0):0.4f}s.")
 
     def to_xml(self):
         """Returns an app TEI XML element constructed from this VariationUnit.
@@ -42,24 +48,9 @@ class VariationUnit:
         Returns:
             An XML Element with attributes matching those of this VariationUnit and child elements corresponding to its Readings.
         """
-        tag = "rdg" if len(self.targets) == 0 and self.type not in ["ambiguous", "overlap", "lac"] else "witDetail"
-        xml = et.Element(tag, nsmap={None: tei_ns})
+        xml = et.Element("app", nsmap = {None: tei_ns})
         if self.id is not None:
             xml.set("n", self.id)
-        if self.type is not None:
-            xml.set("type", self.type)
-        xml.set("wit", " ".join(self.wits))
-        if len(self.targets) > 0:
-            xml.set("target", " ".join(self.targets))
-        # Set the xml:lang attribute of this reading based on its text, and add its text:
-        if self.text is not None:
-            if greek_rdg_pattern.match(self.text):
-                pass # Greek is the language of the whole collation and does not need to be specified here
-            elif latin_rdg_pattern.match(self.text):
-                xml.set('{%s}lang' % xml_ns, "lat")
-            elif syriac_rdg_pattern.match(self.text):
-                xml.set('{%s}lang' % xml_ns, "syr")
-            elif coptic_rdg_pattern.match(self.text):
-                xml.set('{%s}lang' % xml_ns, "cop")
-            xml.text = self.text
+        for rdg in self.readings:
+            xml.append(rdg.to_xml())
         return xml
