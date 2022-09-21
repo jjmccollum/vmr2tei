@@ -10,83 +10,105 @@ xml_ns = "http://www.w3.org/XML/1998/namespace"
 tei_ns = "http://www.tei-c.org/ns/1.0"
 
 """
-ECM Byzantine witnesses
-TODO: There should be multiple lists keyed by book
+ECM Byzantine witnesses by book
 """
-byz_witnesses = [
-    "P57",
-    "014",
-    "014S",
-    "020",
-    "025",
-    "049",
-    "077",
-    "0120", 
-    "0142",
-    "0166",
-    "0294",
-    "1",
-    "6",
-    "18",
-    "35",
-    "43",
-    "69",
-    "93",
-    "103",
-    "104",
-    "206S",
-    "218",
-    "228",
-    "254",
-    "319",
-    "321",
-    "323",
-    "326",
-    "330",
-    "365",
-    "378",
-    "383",
-    "424",
-    "459",
-    "468",
-    "607",
-    "617",
-    "642",
-    "665",
-    "808",
-    "876",
-    "886",
-    "1003",
-    "1127",
-    "1241",
-    "1243",
-    "1251",
-    "1359",
-    "1448",
-    "1509",
-    "1563",
-    "1609",
-    "1718",
-    "1735",
-    "1739S",
-    "1827S",
-    "1832",
-    "1837",
-    "1852",
-    "1874",
-    "1874S",
-    "1890S1",
-    "1890S2",
-    "2243",
-    "2374",
-    "2570",
-    "2774",
-    "L23",
-    "L156",
-    "L587",
-    "L809",
-    "L1178",
-]
+byz_witnesses_by_book = {
+    "Acts": [
+        "P57",
+        "014",
+        "014S",
+        "020",
+        "025",
+        "049",
+        "077",
+        "0120", 
+        "0142",
+        "0166",
+        "0294",
+        "1",
+        "6",
+        "18",
+        "35",
+        "43",
+        "69",
+        "93",
+        "103",
+        "104",
+        "206S",
+        "218",
+        "228",
+        "254",
+        "319",
+        "321",
+        "323",
+        "326",
+        "330",
+        "365",
+        "378",
+        "383",
+        "424",
+        "459",
+        "468",
+        "607",
+        "617",
+        "642",
+        "665",
+        "808",
+        "876",
+        "886",
+        "1003",
+        "1127",
+        "1241",
+        "1243",
+        "1251",
+        "1359",
+        "1448",
+        "1509",
+        "1563",
+        "1609",
+        "1718",
+        "1735",
+        "1739S",
+        "1827S",
+        "1832",
+        "1837",
+        "1852",
+        "1874",
+        "1874S",
+        "1890S1",
+        "1890S2",
+        "2243",
+        "2374",
+        "2570",
+        "2774",
+        "L23",
+        "L156",
+        "L587",
+        "L809",
+        "L1178",
+    ],
+    "Jas": [
+
+    ],
+    "1Pet": [
+
+    ],
+    "2Pet": [
+
+    ],
+    "1Jn": [
+
+    ],
+    "2Jn": [
+
+    ],
+    "3Jn": [
+
+    ],
+    "Jude": [
+
+    ],
+}
 
 """
 Versional witness prefixes
@@ -106,6 +128,7 @@ Hardcoded settings based on VMR XML conventions
 """
 omission_string = "om."
 overlap_label = "zu"
+unclear_label = "zv"
 ambiguous_label = "zw"
 lac_label = "zz"
 
@@ -122,20 +145,23 @@ majuscule_pattern = re.compile(r"^0\d+")
 minuscule_pattern = re.compile(r"^[1-9]\d*")
 lectionary_pattern = re.compile(r"^L\d+")
 corrector_pattern = re.compile(r"[CAK]\d*")
-ignored_manuscript_suffix_pattern = re.compile(r"(\*|T|V|f\d*)$")
+firsthand_corrector_pattern = re.compile(r"\*V*C\d*")
+ignored_manuscript_suffix_pattern = re.compile(r"(\*|T|V|f)\d*$")
+ignored_version_suffix_pattern = re.compile(r"(Mss|mss|Ms|ms)$")
+ignored_father_suffix_pattern = re.compile(r"(Mss|mss|Ms|ms|T|Text|V|v)$")
 all_manuscript_suffix_pattern = re.compile(r"(\*|T|V|f\d*|C\d*|A\d*|K\d*|L\d+)$")
 witness_with_parentheses_pattern = re.compile(r"(\S+)\(([^\(\)]*)\)")
 version_start_pattern = re.compile(r"^(L|S|K|Ä|A|G|Sl)(:|>|$)") # indicates the start of an evidence block for a particular version; if no colon, then the version is a singleton witness
 latin_version_pattern = re.compile(r"^(V|AU|HIL|QU|\d+)")
-syriac_version_pattern = re.compile(r"^(A|P|HT|HM|HA|H)(mss|ms)*")
-coptic_version_pattern = re.compile(r"^(S|B|M|F)(mss|ms)*")
+syriac_version_pattern = re.compile(r"^(A|P|HT|HM|HA|H)(Mss|mss|Ms|ms)*")
+coptic_version_pattern = re.compile(r"^(S|B|M|F)(Mss|mss|Ms|ms)*")
 slavonic_version_pattern = re.compile(r"^(Ch|E|M|O|Si|St|V)")
 fehler_pattern = re.compile(r"f\d*$")
 defective_reading_label_pattern = re.compile(r"^[a-z]+f\d*$")
 orthographic_reading_label_pattern = re.compile(r"^[a-z]+o\d*$")
 
-def get_base_manuscript_siglum(siglum: str, regex: re.Pattern = all_manuscript_suffix_pattern):
-    """Given a manuscript witness siglum and a regex of suffixes to remove from it,
+def get_base_siglum(siglum: str, regex: re.Pattern = all_manuscript_suffix_pattern):
+    """Given a witness siglum and a regex of suffixes to remove from it,
     strips all suffixes described by the regex from the siglum until no further suffixes can be found.
     The resulting base siglum is returned.
     The suffix regex defaults to the common module's manuscript_suffix_pattern.
@@ -147,16 +173,16 @@ def get_base_manuscript_siglum(siglum: str, regex: re.Pattern = all_manuscript_s
     Returns:
         A string representing the base siglum stripped of unwanted suffixes.
     """
-    base_manuscript_siglum = siglum
+    base_siglum = siglum
     suffix_found = True
     while (suffix_found):
         suffix_found = False
         # Otherwise, check if it has a suffix to be removed, and remove the suffix if so:
-        if regex.search(base_manuscript_siglum):
+        if regex.search(base_siglum):
             suffix_found = True
-            suffix = regex.search(base_manuscript_siglum).group()
-            base_manuscript_siglum = base_manuscript_siglum[:-len(suffix)]
-    return base_manuscript_siglum
+            suffix = regex.search(base_siglum).group()
+            base_siglum = base_siglum[:-len(suffix)]
+    return base_siglum
 
 def split_versional_witnesses(siglum: str, regex: re.Pattern):
     """Given a versional witness siglum and a regex of prefixes to remove from it,
@@ -263,52 +289,3 @@ def normalize_versional_sigla(wit_str: str):
             normalized_versional_sigla.append(normalized_siglum)
     normalized_versional_sigla_str = wit_str.replace(" ".join(old_versional_sigla), " ".join(normalized_versional_sigla))
     return normalized_versional_sigla_str
-
-def cleanup_witness_lists(xml: et.ElementTree):
-    """Given a VMR XML tree representing a collation, normalizes the witness lists of all of its segmentReading elements in-place.
-
-    Args:
-        xml: A VMR XML tree for a collation.
-    """
-    # Proceed for each segment:
-    for segment in xml.xpath("//segment"):
-        # Maintain a set of manuscript witnesses that are covered by all readings in this segment:
-        covered_manuscripts_set = set()
-        # In a first pass, normalize the witness lists for all readings in this segment:
-        for segment_reading in segment.xpath(".//segmentReading"):
-            # Get its witness string:
-            witnesses_string = segment_reading.get("witnesses")
-            # The VMR collations sometimes erroneously leave in periods for spaces; replace them accordingly:
-            witnesses_string = witnesses_string.replace(".", " ")
-            # Remove any square brackets around witnesses:
-            witnesses_string = witnesses_string.replace("[", "").replace("]", "")
-            # Remove any right angle brackets after versional witnesses:
-            witnesses_string = witnesses_string.replace(">", "")
-            # Remove any erroneous spaces after colons:
-            witnesses_string = witnesses_string.replace(": ", ":")
-            # Remove any erroneous double spaces:
-            witnesses_string = witnesses_string.replace("  ", " ")
-            # Remove any escaped spaces at the end of the witnesses list:
-            witnesses_string = witnesses_string.replace(" &nbsp;", "")
-            # Expand out any parenthetical suffixes in the witness string:
-            witnesses_string = expand_parenthetical_suffixes(witnesses_string)
-            # Normalize all the versional witness sigla for easier parsing:
-            witnesses_string = normalize_versional_sigla(witnesses_string)
-            # Now update the segmentReading's wit attribute in-place:
-            segment_reading.set("witnesses", witnesses_string)
-            # Then add the manuscripts in this updated witness list to the set of covered manuscripts:
-            wits = witnesses_string.split()
-            for wit in wits:
-                # If this siglum does not look like a manuscript or looks like a corrector, then skip it:
-                if not manuscript_witness_pattern.match(wit) or corrector_pattern.search(wit):
-                    continue
-                # Otherwise, get its base siglum and add that to the set of covered manuscripts:
-                wit_id = get_base_manuscript_siglum(wit, ignored_manuscript_suffix_pattern)
-                covered_manuscripts_set.add(wit_id)
-        # In a second pass, replace the "Byz" siglum with a string of appropriate witnesses:
-        remaining_byz_witnesses = [wit for wit in byz_witnesses if wit not in covered_manuscripts_set]
-        for segment_reading in segment.xpath(".//segmentReading"):
-            witnesses_string = segment_reading.get("witnesses")
-            if "Byz" in witnesses_string:
-                witnesses_string = witnesses_string.replace("Byz", " ".join(remaining_byz_witnesses))
-                segment_reading.set("witnesses", witnesses_string)

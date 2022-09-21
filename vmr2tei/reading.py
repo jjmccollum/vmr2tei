@@ -41,6 +41,8 @@ class Reading:
             self.type = "orthographic"
         elif self.id == overlap_label:
             self.type = "overlap"
+        elif self.id == unclear_label:
+            self.type = "unclear"
         elif self.id == ambiguous_label:
             self.type = "ambiguous"
         elif self.id == lac_label:
@@ -56,9 +58,9 @@ class Reading:
         if singular_to_subreading and self.type is None and len(self.wits) <= 1:
             self.type = "subreading"
         # Finally, get the text.
-        # If the reading type is not "ambiguous", then the reading attribute will contain a proper reading, a string indicating an omission, or nothing (in the case of overlaps and lacunae)
+        # If the reading type is not "ambiguous", then the reading attribute will contain a proper reading, a string indicating an omission, or nothing (in the case of overlaps, unclear retroversions, and lacunae)
         self.text = None
-        if self.type not in ["ambiguous", "overlap", "lac"]:
+        if self.type not in ["ambiguous", "unclear", "overlap", "lac"]:
             if xml.get("reading") is not None and xml.get("reading") != omission_string:
                 self.text = xml.get("reading")
         t1 = time.time()
@@ -71,7 +73,7 @@ class Reading:
         Returns:
             An XML element with attributes matching those of this Reading.
         """
-        tag = "rdg" if len(self.targets) == 0 and self.type not in ["ambiguous", "overlap", "lac"] else "witDetail"
+        tag = "rdg" if len(self.targets) == 0 and self.type not in ["ambiguous", "unclear", "overlap", "lac"] else "witDetail"
         xml = et.Element(tag, nsmap = {None: tei_ns})
         if self.id is not None:
             xml.set("n", self.id)
