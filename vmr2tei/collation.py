@@ -136,7 +136,7 @@ class Collation():
                     wit_type = "father"
                     # NOTE: Ideally, situations involving divided manuscript attestation should result in all copies of the father's sigla in this unit being moved to an ambiguous reading,
                     # but this is better handled in the preparation of the data than in the parsing.
-                    if ignored_patristic_suffix_pattern.search(wit):
+                    if ignored_father_suffix_pattern.search(wit):
                         continue
                 # If this witness looks like a manuscript and has a corrector suffix, then use the "corrector" type instead:
                 if manuscript_witness_pattern.match(wit_id) and corrector_pattern.search(wit_id):
@@ -232,7 +232,7 @@ class Collation():
         """
         self.cleanup_witness_lists(xml)
         self.parse_witnesses(xml)
-        self.remove_unknown_witnesses(xml)
+        self.postprocess_witness_lists(xml)
         self.parse_segments(xml)
 
     def to_xml(self):

@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/jjmccollum/vmr2tei"
 repository = "https://github.com/jjmccollum/vmr2tei"
 documentation = "https://jjmccollum.github.io/vmr2tei/"
-keywords = ["Python", "phylogenetics", "text encoding", "TEI", "NEXUS"]
+keywords = ["Python", "phylogenetics", "text encoding", "TEI"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Science/Research",

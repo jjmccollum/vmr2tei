@@ -248,8 +248,10 @@ def normalize_versional_sigla(wit_str: str):
     # First, split the string on whitespace:
     wits = wit_str.split()
     for wit in wits:
-        # If we haven't entered the versional evidence block, then skip any entries that do not match the pattern of a versional evidence block:
+        # If we haven't entered the versional evidence block, then leave any entries that do not match the pattern of a versional evidence block unchanged:
         if version_prefix == "" and not version_start_pattern.search(wit):
+            old_versional_sigla.append(wit)
+            normalized_versional_sigla.append(wit)
             continue
         # Otherwise, if this is the start of a new versional evidence block, then update the current version prefix, and look up the siglum replacement for the appropriate version:
         if version_start_pattern.search(wit):
@@ -287,5 +289,5 @@ def normalize_versional_sigla(wit_str: str):
             normalized_siglum = version_prefix + ":" + wit
             old_versional_sigla.append(wit)
             normalized_versional_sigla.append(normalized_siglum)
-    normalized_versional_sigla_str = wit_str.replace(" ".join(old_versional_sigla), " ".join(normalized_versional_sigla))
+    normalized_versional_sigla_str = " ".join(normalized_versional_sigla)
     return normalized_versional_sigla_str
