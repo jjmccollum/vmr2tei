@@ -102,7 +102,7 @@ class Witness:
         Returns:
             An XML Element with attributes matching those of this Witness.
         """
-        xml = et.Element("witness", nsmap={None: tei_ns})
+        xml = et.Element("{%s}witness" % tei_ns)
         xml.set("n", self.id)
         xml.set("type", self.type)
         return xml

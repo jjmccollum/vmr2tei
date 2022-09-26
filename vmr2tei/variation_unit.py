@@ -48,7 +48,7 @@ class VariationUnit:
         Returns:
             An XML Element with attributes matching those of this VariationUnit and child elements corresponding to its Readings.
         """
-        xml = et.Element("app", nsmap = {None: tei_ns})
+        xml = et.Element("{%s}app" % tei_ns)
         if self.id is not None:
             xml.set("n", self.id)
         for rdg in self.readings:

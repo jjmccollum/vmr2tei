@@ -73,7 +73,7 @@ class Reading:
         Returns:
             An XML element with attributes matching those of this Reading.
         """
-        tag = "rdg" if len(self.targets) == 0 and self.type not in ["ambiguous", "unclear", "overlap", "lac"] else "witDetail"
+        tag = "{%s}rdg" % tei_ns if len(self.targets) == 0 and self.type not in ["ambiguous", "unclear", "overlap", "lac"] else "{%s}witDetail" % tei_ns
         xml = et.Element(tag, nsmap = {None: tei_ns})
         if self.id is not None:
             xml.set("n", self.id)

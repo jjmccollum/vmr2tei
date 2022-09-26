@@ -244,37 +244,37 @@ class Collation():
         # Initialize a namespace map to be used throughout the output XML tree:
         nsmap = {None: tei_ns, "xml": xml_ns}
         # Under this, add a TEI element to be populated later:
-        tei = et.Element("TEI", nsmap=nsmap)
+        tei = et.Element("{%s}TEI" % tei_ns, nsmap=nsmap)
         # First, add a teiHeader element under the TEI element:
-        teiHeader = et.Element("teiHeader")
+        teiHeader = et.Element("{%s}teiHeader" % tei_ns)
         tei.append(teiHeader)
         # Under this, add a fileDesc element:
-        fileDesc = et.Element("fileDesc")
+        fileDesc = et.Element("{%s}fileDesc" % tei_ns)
         teiHeader.append(fileDesc)
         # Under this, add a titleStmt element under the fileDesc:
-        titleStmt = et.Element("titleStmt")
+        titleStmt = et.Element("{%s}titleStmt" % tei_ns)
         fileDesc.append(titleStmt)
         # Under this, add a title element:
-        title = et.Element("title")
+        title = et.Element("{%s}title" % tei_ns)
         title.text = "A collation of %s" % (self.book)
         titleStmt.append(title)
         # Next, add a publicationStmt element under the fileDesc:
-        publicationStmt = et.Element("publicationStmt")
+        publicationStmt = et.Element("{%s}publicationStmt" % tei_ns)
         p = et.Element("p")
         p.text = "Temporary publicationStmt for validation"
         publicationStmt.append(p)
         fileDesc.append(publicationStmt)
         # Next, add a sourceDesc element under the fileDesc:
-        sourceDesc = et.Element("sourceDesc")
+        sourceDesc = et.Element("{%s}sourceDesc" % tei_ns)
         fileDesc.append(sourceDesc)
         # Then add a listWit element under the sourceDesc:
-        list_wit = et.Element("listWit")
+        list_wit = et.Element("{%s}listWit" % tei_ns)
         sourceDesc.append(list_wit)
         # Then add a witness element for each witness in this collation:
         for wit in self.witnesses:
             list_wit.append(wit.to_xml())
         # Then, add a text element with the appropriate main language under the TEI element:
-        text = et.Element("text")
+        text = et.Element("{%s}text" % tei_ns)
         text.set("{%s}lang" % xml_ns, "grc")
         tei.append(text)
         # Under this, add a body element:
