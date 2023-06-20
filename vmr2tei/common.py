@@ -13,6 +13,9 @@ tei_ns = "http://www.tei-c.org/ns/1.0"
 ECM Byzantine witnesses by book
 """
 byz_witnesses_by_book = {
+    "Mark": [
+        # TODO: need access to ECM Mark's Codices Byzantini list
+    ],
     "Acts": [
         "P57",
         "014",

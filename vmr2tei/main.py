@@ -15,7 +15,7 @@ def convert(
     verbose: bool = typer.Option(False, help="Enable verbose logging (mostly for debugging purposes)."),
     index: str = typer.Argument(
         ...,
-        help="A content index for the ECM collation hosted in the New Testament Virtual Manuscript Room (NTVMR); e.g., Acts [for the whole book], Acts.1 or Acts.1-5 [for one or more chapters], or Acts.1.1 or Acts.1.1-5 [for one or more verses].",
+        help="A content index for the ECM collation hosted in the New Testament Virtual Manuscript Room (NTVMR); e.g., Acts (for the whole book), Acts.1 or Acts.1-5 (for one or more chapters), or Acts.1.1 or Acts.1.1-5 (for one or more verses).",
     ),
     output: Path = typer.Argument(
         ...,
