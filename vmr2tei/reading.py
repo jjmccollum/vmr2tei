@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import time # to time calculations for users
 from typing import List
 from lxml import etree as et # for reading TEI XML inputs
 
@@ -21,51 +20,55 @@ class Reading:
         For substantive readings, this should be empty. For ambiguous readings, it should contain references to the readings that might correspond to this one.
     """
 
-    def __init__(self, xml: et.Element, singular_to_subreading: bool = False, verbose: bool = False):
+    def __init__(self, _id: str, _type: str, _text: str, _wits: List[str], _targets: List[str], verbose: bool = False):
+        """Constructs a new Reading instance with the specified fields."""
+        self.id = _id
+        self.type = _type
+        self.text = _text
+        self.wits = list(_wits)
+        self.targets = list(_targets)
+        if verbose:
+            print(f"New Reading (id: {self.id}, type: {self.type}, wits: {str(self.wits)}, targets: {str(self.targets)}, text: {self.text if self.text is not None else ''})")
+
+    @classmethod
+    def from_xml(cls, xml: et.Element, verbose: bool = False):
         """Constructs a new Reading instance from a VMR XML segmentReading element.
         Optionally, the reading's type can be set to "subreading" if the reading has support from at most one witness.
 
         Args:
             xml: A VMR XML segmentReading element.
-            singular_to_subreading: An optional flag indicating whether or not to set the reading's type to "subreading" if the reading does not already have a type and has support from at most one witness.
             verbose: An optional flag indicating whether or not to print status updates.
         """
-        t0 = time.time()
         # Set the ID of this Reading based on the segmentReading's label:
-        self.id = xml.get("label").replace("♦", "").strip() # remove diamonds and surrounding whitespace
+        _id = xml.get("label").strip("♦").strip()
         # Retrieve the type of this Reading from its label:
-        self.type = None
-        if defective_reading_label_pattern.match(self.id):
-            self.type = "defective"
-        elif orthographic_reading_label_pattern.match(self.id):
-            self.type = "orthographic"
-        elif self.id == overlap_label:
-            self.type = "overlap"
-        elif self.id == unclear_label:
-            self.type = "unclear"
-        elif self.id == ambiguous_label:
-            self.type = "ambiguous"
-        elif self.id == lac_label:
-            self.type = "lac"
+        _type = None
+        if defective_reading_label_pattern.match(_id):
+            _type = "defective"
+        elif orthographic_reading_label_pattern.match(_id):
+            _type = "orthographic"
+        elif _id == overlap_label:
+            _type = "overlap"
+        elif _id == unclear_label:
+            _type = "unclear"
+        elif _id == ambiguous_label:
+            _type = "ambiguous"
+        elif _id == lac_label:
+            _type = "lac"
         # If this reading is ambiguous, then the reading attribute contains its target readings; 
         # remove any "_f" suffixes from this string and split the remaining text on the "/" token:
-        self.targets = []
-        if self.type == "ambiguous":
-            self.targets = xml.get("reading").replace("_f", "").split("/")
+        _targets = []
+        if _type == "ambiguous":
+            _targets = xml.get("reading").replace("_f", "").split("/")
         # Get the witness list for this reading:
-        self.wits = xml.get("witnesses").split()
-        # If the singular_to_subreading flag is set, then set the reading type to "subreading" if it is not already set and the witness list contains at most one entry:
-        if singular_to_subreading and self.type is None and len(self.wits) <= 1:
-            self.type = "subreading"
+        _wits = xml.get("witnesses").split()
         # Finally, get the text.
         # If the reading type is not "ambiguous", then the reading attribute will contain a proper reading, a string indicating an omission, or nothing (in the case of overlaps, unclear retroversions, and lacunae)
-        self.text = None
-        if self.type not in ["ambiguous", "unclear", "overlap", "lac"]:
+        _text = None
+        if _type not in ["ambiguous", "unclear", "overlap", "lac"]:
             if xml.get("reading") is not None and xml.get("reading") != omission_string:
-                self.text = xml.get("reading")
-        t1 = time.time()
-        if verbose:
-            print(f"New Reading (id: {self.id}, type: {self.type}, wits: {str(self.wits)}, targets: {str(self.targets)}, text: {self.text if self.text is not None else ''}) constructed in {(t1 - t0):0.4f}s.")
+                _text = xml.get("reading")
+        return cls(_id, _type, _text, _wits, _targets, verbose)
 
     def to_xml(self):
         """Returns a rdg or witDetail TEI XML element constructed from this Reading.

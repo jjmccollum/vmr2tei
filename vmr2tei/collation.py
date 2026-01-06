@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import time # to time calculations for users
 import re # for parsing augmented witness sigla
 from lxml import etree as et # for reading VMR XML inputs and writing TEI XML output
 
@@ -12,228 +11,216 @@ class Collation():
     """Base class for storing VMR XML collation data internally.
 
     Attributes:
-        book: A string representing the book for which this Collation contains data. 
+        book: A string representing the book for which this Collation contains data.
         It is used to select the appropriate data sets (such as the witnesses represented by the "Byz" siglum in a given book) for cleaning up the collation data.
         witnesses: A list of Witnesses contained in this Collation.
         witness_inds_by_id: A dictionary mapping base witness sigla to their indices in the witnesses list.
         variation_units: A list of VariationUnits contained in this Collation.
-        singular_to_subreading: An optional flag indicating whether or not to set a reading's type to "subreading" if the reading does not already have a type and has support from at most one witness.
+        include_a: An optional flag indicating whether or not to include the Ausgangstext (A) as an additional witness in the collation. Split-line readings will be treated as ambiguous readings for this witness.
         verbose: An optional flag indicating whether or not to print status updates.
     """
 
-    def __init__(self, book, singular_to_subreading: bool = False, verbose: bool = False):
+    def __init__(self, book, include_a: bool = False, verbose: bool = False):
         """Initializes a new Collation instance with the given parameters.
 
         Args:
             xml: A VMR XML segment element whose segmentReading children all have normalized witness lists.
             book: A string representing the book for which this Collation contains data.
-            singular_to_subreading: An optional flag indicating whether or not to set each segmentReading child's type to "subreading" 
-            if the reading does not already have a type and has support from at most one witness.
+            include_a: An optional flag indicating whether or not to include the Ausgangstext (A) as an additional witness in the collation. Split-line readings will be treated as ambiguous readings for this witness.
             verbose: An optional flag indicating whether or not to print status updates.
         """
         self.book = book # name of the NT book to which the collation belongs
         self.witnesses = [] # internal list of Witness instances
         self.witness_inds_by_id = {} # internal dictionary mapping witness IDs to their indices in the list
         self.variation_units = [] # internal list of VariationUnit instances
-        self.singular_to_subreading = singular_to_subreading # flag indicating whether or not to use type="subreading" for readings with singular support
+        self.include_a = include_a # flag indicating whether or not to include the Ausgangstext (A) as a distinct witness
         self.verbose = verbose # flag indicating whether or not to print timing and debugging details for the user
+        # If we are to include the Ausgangstext as a witness, then add it to the witness list now:
+        if self.include_a:
+            a_witness = Witness("A", "initial", None, None, self.verbose)
+            self.witnesses.append(a_witness)
+            self.witness_inds_by_id["A"] = 0
 
-    def cleanup_witness_lists(self, xml: et.ElementTree):
-        """Given a VMR XML tree representing a collation, normalizes the witness lists of all of its segmentReading elements in-place.
+    def add_witnesses(self, xml: et.Element):
+        """Given a VMR XML element representing a list of witnesses, populates this Collation's internal list of Witnesses.
+        Witnesses without GA numbers or with spaces in their GA numbers are not added, as they would not occur in any variation unit's witness list.
+        TODO: The Liste API seemingly does not have the data for versions and fathers nicely organized and dated yet, 
+        so for now, this method assumes that the VMR XML element contains only manuscript entries.
 
         Args:
-            xml: A VMR XML tree for a collation.
+            xml: A VMR XML element for a witness list.
         """
-        # Proceed for each segment:
-        for segment in xml.xpath("//segment"):
-            # Maintain a set of manuscript witnesses that are covered by all readings in this segment:
-            covered_manuscripts_set = set()
-            # In a first pass, normalize the witness lists for all readings in this segment:
-            for segment_reading in segment.xpath(".//segmentReading"):
-                # Get its witness string:
-                witnesses_string = segment_reading.get("witnesses")
-                # The VMR collations sometimes erroneously leave in periods for spaces; replace them accordingly:
-                witnesses_string = witnesses_string.replace(".", " ")
-                # Remove any square brackets around witnesses:
-                witnesses_string = witnesses_string.replace("[", "").replace("]", "")
-                # Remove any right angle brackets after versional witnesses:
-                witnesses_string = witnesses_string.replace(">", "")
-                # Remove any erroneous spaces after colons:
-                witnesses_string = witnesses_string.replace(": ", ":")
-                # Remove any erroneous double spaces:
-                witnesses_string = witnesses_string.replace("  ", " ")
-                # Remove any escaped spaces at the end of the witnesses list:
-                witnesses_string = witnesses_string.replace(" &nbsp;", "")
-                # Expand out any parenthetical suffixes in the witness string:
-                witnesses_string = expand_parenthetical_suffixes(witnesses_string)
-                # Normalize all the versional witness sigla for easier parsing:
-                witnesses_string = normalize_versional_sigla(witnesses_string)
-                # Now update the segmentReading's wit attribute in-place:
-                segment_reading.set("witnesses", witnesses_string)
-                # Then add the manuscripts in this updated witness list to the set of covered manuscripts:
-                wits = witnesses_string.split()
-                for wit in wits:
-                    # If this siglum does not look like a manuscript or looks like a corrector, then skip it:
-                    if not manuscript_witness_pattern.match(wit) or corrector_pattern.search(wit):
-                        continue
-                    # Otherwise, get its base siglum and add that to the set of covered manuscripts:
-                    wit_id = get_base_siglum(wit, ignored_manuscript_suffix_pattern)
-                    covered_manuscripts_set.add(wit_id)
-            # In a second pass, replace the "Byz" siglum with a string of appropriate witnesses:
-            remaining_byz_witnesses = [wit for wit in byz_witnesses_by_book[self.book] if wit not in covered_manuscripts_set]
-            for segment_reading in segment.xpath(".//segmentReading"):
-                witnesses_string = segment_reading.get("witnesses")
-                if "Byz" in witnesses_string:
-                    witnesses_string = witnesses_string.replace("Byz", " ".join(remaining_byz_witnesses))
-                    segment_reading.set("witnesses", witnesses_string)
-    
-    def parse_witnesses(self, xml: et.ElementTree):
-        """Given a VMR XML tree representing a collation (that is assumed to have been modified by the cleanup_witness_lists method),
-        populates this Collation's witnesses list using the witnesses cited in XML's variant reading elements.
+        for manuscript in xml.xpath(".//manuscript"):
+            ga_num = manuscript.get("gaNum")
+            if ga_num is None or ga_num == "" or " " in ga_num:
+                continue
+            witness = Witness.from_xml(manuscript, self.verbose)
+            self.witness_inds_by_id[ga_num] = len(self.witnesses)
+            self.witnesses.append(witness)
+
+    def cleanup_witness_lists(self, xml: et.Element):
+        """Given a VMR XML element representing a segment, normalizes the witness lists of all of its segmentReading elements in-place.
 
         Args:
-            xml: A VMR XML tree for a collation with normalized witness lists.
+            xml: A VMR XML element for a segment.
+        """
+        # Maintain a set of manuscript witnesses that are covered by all readings in this segment:
+        covered_manuscripts_set = set()
+        # In a first pass, normalize the witness lists for all readings in this segment:
+        for segment_reading in xml.xpath(".//segmentReading"):
+            # Get its witness string:
+            witnesses_string = segment_reading.get("witnesses")
+            # The VMR collations sometimes erroneously leave in periods for spaces; replace them accordingly:
+            witnesses_string = witnesses_string.replace(".", " ")
+            # Remove any square brackets around witnesses:
+            witnesses_string = witnesses_string.replace("[", "").replace("]", "")
+            # Remove any right angle brackets after versional witnesses:
+            witnesses_string = witnesses_string.replace(">", "")
+            # Remove any erroneous spaces after colons:
+            witnesses_string = witnesses_string.replace(": ", ":")
+            # Remove any erroneous double spaces:
+            witnesses_string = witnesses_string.replace("  ", " ")
+            # Replace superscript "ms" and "mss" suffixes with standard lowercase equivalents:
+            witnesses_string = witnesses_string.replace("ᵐˢˢ", "mss").replace("ᵐˢ", "ms")
+            # Replace superscript suffixes for the Harklean Syriac version with their standard uppercase equivalents:
+            witnesses_string = witnesses_string.replace("ᵀ", "T").replace("ᴬ", "A").replace("ᴹ", "M")
+            # Replace the superscript suffix for one Arabic version's margin with its standard lowercase equivalent:
+            witnesses_string = witnesses_string.replace("ᵐᶢ", "mg")
+            # Remove any escaped characters in the witnesses list:
+            witnesses_string = witnesses_string.replace(" &nbsp;", "").replace("&gt;", "").replace("&lt;", "")
+            # Replace the ECM notation for first-hand corrections and apparent first-hand corrections with simpler notation 
+            # that looks like other corrector notation:
+            witnesses_string = witnesses_string.replace("*C", "C0")
+            witnesses_string = witnesses_string.replace("*VC", "C0V")
+            # Expand out any parenthetical suffixes in the witness string:
+            witnesses_string = expand_parenthetical_suffixes(witnesses_string)
+            # Normalize all the versional witness sigla for easier parsing:
+            witnesses_string = normalize_versional_sigla(witnesses_string)
+            # Now update the segmentReading's wit attribute in-place:
+            segment_reading.set("witnesses", witnesses_string)
+            # Then add the manuscripts in this updated witness list to the set of covered manuscripts:
+            wits = witnesses_string.split()
+            for wit in wits:
+                # If this siglum does not look like a manuscript, or if it looks like a corrector, then skip it:
+                if not manuscript_witness_pattern.match(wit) or corrector_suffix_pattern.search(wit):
+                    continue
+                # Otherwise, get its base siglum and add that to the set of covered manuscripts:
+                wit_id = get_base_siglum(wit, [ignored_manuscript_suffix_pattern, lection_suffix_pattern], [])
+                covered_manuscripts_set.add(wit_id)
+        # In a second pass, replace the "Byz" siglum with a string of appropriate witnesses:
+        remaining_byz_witnesses = [wit for wit in byz_witnesses_by_book[self.book] if wit not in covered_manuscripts_set]
+        for segment_reading in xml.xpath(".//segmentReading"):
+            witnesses_string = segment_reading.get("witnesses")
+            if "Byz" in witnesses_string:
+                witnesses_string = witnesses_string.replace("Byz", " ".join(remaining_byz_witnesses))
+                segment_reading.set("witnesses", witnesses_string)
+        
+    def add_segment(self, xml: et.Element):
+        """Given a VMR XML element representing a segment (that is assumed to have been modified by the cleanup_witness_lists method),
+        preprocess the XML element in place, parse it as a VariationUnit instance, and add it to the internal storage of this Collation.
+
+        Args:
+            xml: A VMR XML element for a segment with normalized witness lists.
         """
         if self.verbose:
-            print("Parsing witnesses from VMR XML...")
-        t0 = time.time()
-        # Then proceed for each reading element:
-        for segment_reading in xml.xpath("//segmentReading"):
-            # Split its witness sigla over spaces and proceed for each siglum:
-            wits = segment_reading.get("witnesses").split()
-            for wit in wits:
-                wit_id = wit
-                wit_type = None
-                # If this witness siglum already corresponds to an existing witness, then skip it:
-                if wit_id in self.witness_inds_by_id:
-                    continue
-                # Otherwise, check if this siglum is for a manuscript:
-                if papyrus_pattern.match(wit_id):
-                    wit_type = "papyrus"
-                    wit_id = get_base_siglum(wit_id, ignored_manuscript_suffix_pattern) # strip any ignored suffixes
-                elif majuscule_pattern.match(wit_id):
-                    wit_type = "majuscule"
-                    wit_id = get_base_siglum(wit_id, ignored_manuscript_suffix_pattern) # strip any ignored suffixes
-                elif minuscule_pattern.match(wit_id):
-                    wit_type = "minuscule"
-                    wit_id = get_base_siglum(wit_id, ignored_manuscript_suffix_pattern) # strip any ignored suffixes
-                elif lectionary_pattern.match(wit_id):
-                    wit_type = "lectionary"
-                    wit_id = get_base_siglum(wit_id, ignored_manuscript_suffix_pattern) # strip any ignored suffixes
-                # If not, check if it is a versional witness (all of them should now be normalized to have the versional prefix pattern):
-                elif version_start_pattern.match(wit_id):
-                    wit_type = "version"
-                    # If this witness looks like a manuscript (e.g., if it is an Old Latin manuscript), then strip any ignored manuscript suffixes from it:
-                    if manuscript_witness_pattern.match(wit_id):
-                        wit_id = get_base_siglum(wit_id, ignored_manuscript_suffix_pattern) # strip any ignored suffixes
-                    # NOTE: Ideally, the situation below should result in all copies of the version's sigla in this unit being moved to an ambiguous reading,
-                    # but this is better handled in the preparation of the data than in the parsing.
-                    # If this witness ends with "ms" or "mss", then its testimony is divided here; treat it as lacunose:
-                    if ignored_version_suffix_pattern.search(wit):
+            print("Parsing variation unit from VMR XML...")
+        self.cleanup_witness_lists(xml)
+        vu = VariationUnit.from_xml(xml, self.include_a, self.verbose)
+        self.variation_units.append(vu)
+
+    def postprocess_witness_lists(self):
+        """Post-process the witness list for this Collation and the witness lists for all of its Readings,
+        Removing any witnesses whose base sigla are not in the Collation's witness list from the Readings,
+        then removing any witnesses from the Collation's witness list that are not found in any Reading,
+        then adding correctors and other derived witnesses from the Readings to the Collation's witness list,
+        and then sorting the Collation's witness list accordingly.
+        """
+        # First, filter all of the reading witness lists, and populate a dictionary 
+        # that maps witnesses whose base sigla are in the Collation's witness list to key tuples for sorting:
+        sort_keys_by_id = {}
+        for vu in self.variation_units:
+            for rdg in vu.readings:
+                new_wits = []
+                for wit in rdg.wits:
+                    # Determine which type of witness this is:
+                    if manuscript_witness_pattern.match(wit):
+                        # For manuscripts, get base sigla with and without corrector suffixes,
+                        # as we want to add correctors as separate witnesses to this Collation's witness list:
+                        first_hand_base_siglum = get_base_siglum(wit, [ignored_manuscript_suffix_pattern, corrector_suffix_pattern, lection_suffix_pattern], [])
+                        corrector_base_siglum = get_base_siglum(wit, [ignored_manuscript_suffix_pattern, lection_suffix_pattern], [corrector_suffix_pattern])
+                        # Is the first hand's base siglum in this Collation's witness list?
+                        if first_hand_base_siglum in self.witness_inds_by_id:
+                            # If the first hand's base siglum matches the corrector's siglum, then this witness is not a corrector;
+                            # add it to the sort key dictionary, if it isn't already present:
+                            if first_hand_base_siglum == corrector_base_siglum:
+                                new_wits.append(wit)
+                                if corrector_base_siglum not in sort_keys_by_id:
+                                    # Use an expanded sort key tuple for correctors, so they will be sorted just after their corresponding first hands:
+                                    sort_keys_by_id[corrector_base_siglum] = manuscript_siglum_key(corrector_base_siglum)
+                            # Otherwise, this may be a corrector or something like a lection or duplicated reading;
+                            # add it as a separate witness only if it is a corrector, commentary reading, or alternate reading, 
+                            # and it is not a lection or repeated portion of text:
+                            elif corrector_suffix_pattern.search(corrector_base_siglum) and not lection_suffix_pattern.search(corrector_base_siglum):
+                                new_wits.append(wit)
+                                if corrector_base_siglum not in sort_keys_by_id:
+                                    # Use an expanded sort key tuple for correctors, so they will be sorted just after their corresponding first hands:
+                                    sort_keys_by_id[corrector_base_siglum] = manuscript_siglum_key(corrector_base_siglum)
+                            continue
+                    if version_start_pattern.search(wit):
+                        base_siglum = get_base_siglum(wit, [ignored_version_suffix_pattern], [])
+                         # Is the base siglum is in this Collation's witness list?
+                        if base_siglum in self.witness_inds_by_id:
+                            # If so, then add the base siglum to the new witness list for this reading and the sort keys dictionary, stripped of its previous suffixes:
+                            new_wits.append(base_siglum)
+                            if base_siglum not in sort_keys_by_id:
+                                sort_keys_by_id[base_siglum] = tuple([self.witness_inds_by_id[base_siglum]])
                         continue
-                # If none of these patterns matches, then assume the witness siglum is for a father and use it as-is:
+                    # Otherwise, this must be a patristic witness:
+                    base_siglum = get_base_siglum(wit, [ignored_father_suffix_pattern], [])
+                    # Is the base siglum is in this Collation's witness list?
+                    if base_siglum in self.witness_inds_by_id:
+                        # If so, then add the base siglum to the new witness list for this reading and the sort keys dictionary, stripped of its previous suffixes:
+                        new_wits.append(base_siglum)
+                        if base_siglum not in sort_keys_by_id:
+                            sort_keys_by_id[base_siglum] = tuple([self.witness_inds_by_id[base_siglum]])
+                # Then set the reading's witness list to the new, filtered list, sorted by their sort keys:
+                def wit_sort_key(wit):
+                    if manuscript_witness_pattern.match(wit):
+                        return sort_keys_by_id[get_base_siglum(wit, [ignored_manuscript_suffix_pattern, lection_suffix_pattern], [corrector_suffix_pattern])]
+                    elif version_start_pattern.search(wit):
+                        return sort_keys_by_id[get_base_siglum(wit, [ignored_version_suffix_pattern], [])]
+                    return sort_keys_by_id[get_base_siglum(wit, [ignored_father_suffix_pattern], [])]
+                rdg.wits = sorted(new_wits, key=lambda wit: wit_sort_key(wit))
+        # Next, filter the Collation's witness list, excluding any witnesses not encountered in any reading:
+        new_witnesses = []
+        for witness in self.witnesses:
+            if witness.id not in sort_keys_by_id:
+                del self.witness_inds_by_id[witness.id]
+                continue
+            new_witnesses.append(witness)
+        self.witnesses = new_witnesses
+        # Then add new witness elements (without date ranges) to the Collation's witness list:
+        for wit in sort_keys_by_id:
+            if wit not in self.witness_inds_by_id:
+                # Determine the type of this witness:
+                wit_type = None
+                if manuscript_witness_pattern.match(wit):
+                    if corrector_suffix_pattern.search(wit):
+                        wit_type = "corrector"
+                    else:
+                        wit_type = None
+                elif version_start_pattern.match(wit):
+                    wit_type = "version"
                 else:
                     wit_type = "father"
-                    # NOTE: Ideally, situations involving divided manuscript attestation should result in all copies of the father's sigla in this unit being moved to an ambiguous reading,
-                    # but this is better handled in the preparation of the data than in the parsing.
-                    if ignored_father_suffix_pattern.search(wit):
-                        continue
-                # If this witness looks like a manuscript and has a corrector suffix, then use the "corrector" type instead:
-                if manuscript_witness_pattern.match(wit_id) and corrector_pattern.search(wit_id):
-                    if wit_id not in self.witness_inds_by_id:
-                        # If this corrector is a first-hand corrector, then change "*VC" to "*C":
-                        if wit_id.endswith("*VC"):
-                            wit_id = wit_id.replace("*VC", "*C")
-                        witness = Witness(wit_id, "corrector", self.verbose)
-                        self.witnesses.append(witness)
-                        self.witness_inds_by_id[wit_id] = len(self.witnesses) - 1
-                # Otherwise, check if a Witness with this siglum has already been added, and add a new Witness if not:
-                else:
-                    if wit_id not in self.witness_inds_by_id:
-                        witness = Witness(wit_id, wit_type, self.verbose)
-                        self.witnesses.append(witness)
-                        self.witness_inds_by_id[wit_id] = len(self.witnesses) - 1
-        # Finally, sort the witnesses list and update the dictionary mapping their IDs to their indices:
-        self.witnesses.sort()
-        for i, wit in enumerate(self.witnesses):
-            wit_id = wit.id
-            self.witness_inds_by_id[wit_id] = i
-        t1 = time.time()
-        if self.verbose:
-            print(f"Done parsing {len(self.witnesses)} witnesses in {(t1 - t0):0.4f}s.")
-
-    def postprocess_witness_lists(self, xml: et.ElementTree):
-        """Given a VMR XML tree representing a collation (that is assumed to have been modified by the cleanup_witness_lists method),
-        modifies the XML tree in-place by removing witness sigla whose base forms are not in this Collation's witnesses list, normalizing first-hand corrector sigla,
-        and sorting the witness lists for all readings.
-
-        Args:
-            xml: A VMR XML tree for a collation with normalized witness lists.
-        """
-        # Proceed for each segment:
-        for segment in xml.xpath("//segment"):
-            # In a first pass, normalize the witness lists for all readings in this segment:
-            for segment_reading in segment.xpath(".//segmentReading"):
-                new_wits = []
-                # Get its witness string:
-                witnesses_string = segment_reading.get("witnesses")
-                # Then process the manuscripts in this updated witness:
-                wits = witnesses_string.split()
-                for wit in wits:
-                    # If this siglum looks like a manuscript, then check if its siglum stripped of ignored manuscript suffixes corresponds to a known witness:
-                    if manuscript_witness_pattern.match(wit):
-                        base_siglum = get_base_siglum(wit, ignored_manuscript_suffix_pattern)
-                        # If this is a first-hand corrector, then change "*VC" to "*C" (because the V doesn't get removed in the get_base_siglum call):
-                        if base_siglum.endswith("*VC"):
-                            base_siglum = base_siglum.replace("*VC", "*C")
-                        if base_siglum in self.witness_inds_by_id:
-                            if base_siglum.endswith("*C"):
-                                new_wits.append(wit.replace("*VC", "*C"))
-                            else:
-                                new_wits.append(wit)
-                    # Otherwise, if this siglum looks like a versional witness, then skip it if it has any of the ignored versional suffixes.
-                    # NOTE: Ideally, the situation below should result in all copies of the version's sigla in this unit being moved to an ambiguous reading,
-                    # but this is better handled in the preparation of the data than in the parsing.
-                    elif version_start_pattern.match(wit):
-                        if not ignored_version_suffix_pattern.search(wit):
-                            new_wits.append(wit)
-                    # Otherwise, if this siglum looks like a patristic witness, then skip it if it has any of the ignored patristic suffixes.
-                    # NOTE: Ideally, either of the situations below should result in all copies of the father's sigla in this unit being moved to an ambiguous reading,
-                    # but this is better handled in the preparation of the data than in the parsing.
-                    else:
-                        if not ignored_father_suffix_pattern.search(wit):
-                            new_wits.append(wit)
-                # Then replace the original witness string with a witness string consisting of the retained witnesses:
-                segment_reading.set("witnesses", " ".join(new_wits))
-
-    def parse_segments(self, xml: et.ElementTree):
-        """Given a VMR XML tree representing a collation (that is assumed to have been modified by the cleanup_witness_lists method),
-        parse its segments internally in this Collation.
-
-        Args:
-            xml: A VMR XML tree for a collation with normalized witness lists.
-        """
-        if self.verbose:
-            print("Parsing variation units from VMR XML...")
-        t0 = time.time()
-        # Process each variation unit one at a time:
-        for segment in xml.xpath("//segment"):
-            vu = VariationUnit(segment, self.singular_to_subreading, self.verbose)
-            self.variation_units.append(vu)
-        t1 = time.time()
-        if self.verbose:
-            print(f"Done parsing {len(self.variation_units)} variation units in {(t1 - t0):0.4f}s.")
-
-    def parse_xml(self, xml: et.ElementTree):
-        """Given a VMR XML tree representing a collation, clean up its witness lists and then parse its witnesses and segments internally in this Collation.
-
-        Args:
-            xml: A VMR XML tree for a collation.
-        """
-        self.cleanup_witness_lists(xml)
-        self.parse_witnesses(xml)
-        self.postprocess_witness_lists(xml)
-        self.parse_segments(xml)
+                witness = Witness(wit, wit_type, None, None, self.verbose)
+                self.witness_inds_by_id[witness.id] = -1 # this will be updated shortly
+                self.witnesses.append(witness)
+        # Then sort the witness list in-place and update the ID-to-index dictionary:
+        self.witnesses.sort(key=lambda witness: sort_keys_by_id[witness.id])
+        self.witness_inds_by_id = {}
+        for i, witness in enumerate(self.witnesses):
+            self.witness_inds_by_id[witness.id] = i
 
     def to_xml(self):
         """Returns an app TEI XML element constructed from this Collation.

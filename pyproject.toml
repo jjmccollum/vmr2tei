@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "vmr2tei"
-version = "0.1.0"
+version = "1.0.0"
 description = "Converts XML data from the INTF Virtual Manuscript Room API to TEI XML"
 authors = ["Joey McCollum"]
 license = "MIT"
@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/jjmccollum/vmr2tei"
 repository = "https://github.com/jjmccollum/vmr2tei"
 documentation = "https://jjmccollum.github.io/vmr2tei/"
-keywords = ["Python", "phylogenetics", "text encoding", "TEI"]
+keywords = ["Python", "text encoding", "TEI", "digital humanities"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Science/Research",
@@ -17,11 +17,12 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.8"
-lxml = "^4.9.1"
+lxml = "^4.9.3"
 typer = "^0.6.1"
 rich = "^12.5.1"
+tqdm = "^4.67.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 Sphinx = "^5.1.1"
 pytest = "^7.1.2"
 coverage = "^6.4.4"

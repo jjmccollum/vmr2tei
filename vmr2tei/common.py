@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from typing import List
 import re
 from lxml import etree as et
 
@@ -13,9 +14,162 @@ tei_ns = "http://www.tei-c.org/ns/1.0"
 ECM Byzantine witnesses by book
 """
 byz_witnesses_by_book = {
+    "Matt": [], # ECM Matthew data appears to expand Byz group by default
     "Mark": [
-        # TODO: need access to ECM Mark's Codices Byzantini list
+        "P84",
+        "02",
+        "05S",
+        "011",
+        "011S",
+        "017",
+        "022",
+        "041",
+        "041S",
+        "042",
+        "043",
+        "055",
+        "064",
+        "099",
+        "0103",
+        "0104",
+        "0130",
+        "0167",
+        "0211",
+        "0233",
+        "0250",
+        "3",
+        "4",
+        "16",
+        "18",
+        "23",
+        "26",
+        "35",
+        "61",
+        "79",
+        "105",
+        "117",
+        "118",
+        "131",
+        "152",
+        "153",
+        "154",
+        "176",
+        "178",
+        "179",
+        "184",
+        "191",
+        "222",
+        "238",
+        "261",
+        "273",
+        "304",
+        "348",
+        "349",
+        "351",
+        "372",
+        "377",
+        "382",
+        "389",
+        "472",
+        "495",
+        "513",
+        "517",
+        "544",
+        "555",
+        "569",
+        "590",
+        "595",
+        "695",
+        "697",
+        "706",
+        "713",
+        "716",
+        "719",
+        "719S",
+        "728",
+        "733",
+        "740",
+        "752",
+        "766",
+        "780",
+        "791",
+        "803",
+        "807",
+        "827",
+        "829",
+        "855",
+        "863",
+        "872",
+        "873",
+        "949",
+        "954",
+        "954S",
+        "979",
+        "1009",
+        "1029",
+        "1047",
+        "1071",
+        "1082",
+        "1084",
+        "1084S",
+        "1093",
+        "1128",
+        "1160",
+        "1216",
+        "1241",
+        "1243",
+        "1253",
+        "1273",
+        "1279",
+        "1302",
+        "1326",
+        "1337",
+        "1396",
+        "1446",
+        "1457",
+        "1495",
+        "1506",
+        "1515",
+        "1528",
+        "1542",
+        "1546",
+        "1555",
+        "1574",
+        "1574S",
+        "1579",
+        "1593",
+        "1645",
+        "1654",
+        "1675",
+        "2106",
+        "2148",
+        "2174",
+        "2200",
+        "2206",
+        "2411",
+        "2486",
+        "2487",
+        "2517",
+        "2537",
+        "2538",
+        "2606",
+        "2607",
+        "2666",
+        "2680",
+        "2726",
+        "2737",
+        "2738",
+        "2744",
+        "2766",
+        "2786",
+        "L60",
+        "L211",
+        "L387",
+        "L563",
+        "L770",
+        "L773"
     ],
+    "Luke": [],
     "Acts": [
         "P57",
         "014",
@@ -90,6 +244,21 @@ byz_witnesses_by_book = {
         "L809",
         "L1178",
     ],
+    "John": [],
+    "Rom": [],
+    "1Cor": [],
+    "2Cor": [],
+    "Gal": [],
+    "Eph": [],
+    "Phil": [],
+    "Col": [],
+    "1Thess": [],
+    "2Thess": [],
+    "1Tim": [],
+    "2Tim": [],
+    "Titus": [],
+    "Phlm": [],
+    "Heb": [],
     "Jas": [
 
     ],
@@ -99,32 +268,20 @@ byz_witnesses_by_book = {
     "2Pet": [
 
     ],
-    "1Jn": [
+    "1John": [
 
     ],
-    "2Jn": [
+    "2John": [
 
     ],
-    "3Jn": [
+    "3John": [
 
     ],
     "Jude": [
 
     ],
+    "Rev": []
 }
-
-"""
-Versional witness prefixes
-"""
-version_prefixes = [
-    "L",
-    "S",
-    "K",
-    "Ä",
-    "A",
-    "G",
-    "Sl",
-]
 
 """
 Hardcoded settings based on VMR XML conventions
@@ -142,49 +299,59 @@ greek_rdg_pattern = re.compile(r"[\u03b1-\u03c9]")
 latin_rdg_pattern = re.compile(r"[\u0061-\u007a]")
 syriac_rdg_pattern = re.compile(r"[\u0710-\u074f]")
 coptic_rdg_pattern = re.compile(r"[\u03e2-\u03ef\u2c80-\u2cee]")
-manuscript_witness_pattern = re.compile(r"^(P|L|L:)?\d+")
-papyrus_pattern = re.compile(r"^P\d+")
-majuscule_pattern = re.compile(r"^0\d+")
-minuscule_pattern = re.compile(r"^[1-9]\d*")
-lectionary_pattern = re.compile(r"^L\d+")
-corrector_pattern = re.compile(r"[CAK]\d*")
-firsthand_corrector_pattern = re.compile(r"\*V*C\d*")
-ignored_manuscript_suffix_pattern = re.compile(r"(\*|T|V|f)\d*$")
-ignored_version_suffix_pattern = re.compile(r"(Mss|mss|Ms|ms)$")
+manuscript_witness_pattern = re.compile(r"^(P|L|L:|F|T|Os)?\d+")
+# papyrus_pattern = re.compile(r"^P\d+")
+# majuscule_pattern = re.compile(r"^0\d+")
+# minuscule_pattern = re.compile(r"^[1-9]\d*")
+# lectionary_pattern = re.compile(r"^L\d+")
+ignored_manuscript_suffix_pattern = re.compile(r"(\*|T|V|f|r)\d*$")
+ignored_version_suffix_pattern = re.compile(r"(Mss|mss|Ms|ms|alt)$")
 ignored_father_suffix_pattern = re.compile(r"(Mss|mss|Ms|ms|T|Text|V|v)$")
-all_manuscript_suffix_pattern = re.compile(r"(\*|T|V|f\d*|C\d*|A\d*|K\d*|L\d+)$")
+# all_manuscript_suffix_pattern = re.compile(r"(\*|T|V|f\d*|r\d*|C\d*|A\d*|K\d*|\-\d+)$")
+corrector_suffix_pattern = re.compile(r"([CAK]\d*[a-z]*)$")
+lection_suffix_pattern = re.compile(r"(\-\d+)$")
 witness_with_parentheses_pattern = re.compile(r"(\S+)\(([^\(\)]*)\)")
-version_start_pattern = re.compile(r"^(L|S|K|Ä|A|G|Sl)(:|>|$)") # indicates the start of an evidence block for a particular version; if no colon, then the version is a singleton witness
-latin_version_pattern = re.compile(r"^(V|AU|HIL|QU|\d+)")
-syriac_version_pattern = re.compile(r"^(A|P|HT|HM|HA|H)(Mss|mss|Ms|ms)*")
+version_start_pattern = re.compile(r"^(L|S|CPA|K|Ä|A|G|Go|Sl)(:|>|$)") # indicates the start of an evidence block for a particular version; if no colon, then the version is a singleton witness
+latin_version_pattern = re.compile(r"^(VL|X|Y|K|C|A|VG|A|S|I|V|D|J|G|T|\d+)")
+syriac_version_pattern = re.compile(r"^(Vˢ|Vᶜ|Vⱽ|Vᶠ|A|P|Ph|HT|HM|HA|H)(Mss|mss|Ms|ms)*")
+cpa_version_pattern = re.compile(r"^(C|L)(Mss|mss|Ms|ms)*")
 coptic_version_pattern = re.compile(r"^(S|B|M|F)(Mss|mss|Ms|ms)*")
 slavonic_version_pattern = re.compile(r"^(Ch|E|M|O|Si|St|V)")
 fehler_pattern = re.compile(r"f\d*$")
-defective_reading_label_pattern = re.compile(r"^[a-z]+f\d*$")
-orthographic_reading_label_pattern = re.compile(r"^[a-z]+o\d*$")
+defective_reading_label_pattern = re.compile(r"^([a-z]+)(f\d*)$")
+orthographic_reading_label_pattern = re.compile(r"^([a-z]+)(o\d*)$")
 
-def get_base_siglum(siglum: str, regex: re.Pattern = all_manuscript_suffix_pattern):
-    """Given a witness siglum and a regex of suffixes to remove from it,
-    strips all suffixes described by the regex from the siglum until no further suffixes can be found.
+def get_base_siglum(siglum: str, ignore_patterns: List[re.Pattern] = [], keep_patterns: List[re.Pattern] = []):
+    """Given a witness siglum, a list of patterns for suffixes to ignore, and a list of patterns for suffixes to keep,
+    recursively remove all ignored suffixes while retaining the kept suffixes.
     The resulting base siglum is returned.
     The suffix regex defaults to the common module's manuscript_suffix_pattern.
 
     Args:
         siglum: A witness siglum potentially consisting of multiple suffixes that can be stripped from the base witness (e.g., "01*f").
-        regex: A regular expression pattern to identify unwanted suffixes from the siglum.
+        ignore_patterns: A list of regular expression patterns describing suffixes to remove from the siglum.
+        keep_patterns: A list of regular expression patterns describing suffixes to keep in the siglum.
 
     Returns:
-        A string representing the base siglum stripped of unwanted suffixes.
+        A string representing the base siglum stripped of ignored suffixes but not kept suffixes.
     """
     base_siglum = siglum
-    suffix_found = True
-    while (suffix_found):
-        suffix_found = False
-        # Otherwise, check if it has a suffix to be removed, and remove the suffix if so:
-        if regex.search(base_siglum):
-            suffix_found = True
-            suffix = regex.search(base_siglum).group()
+    # First, check if this siglum contains any of the ignored suffixes:
+    for pattern in ignore_patterns:
+        if pattern.search(base_siglum):
+            # If it does, then strip the suffix and recursively process the remainder of the siglum:
+            suffix = pattern.search(base_siglum).group()
             base_siglum = base_siglum[:-len(suffix)]
+            return get_base_siglum(base_siglum, ignore_patterns, keep_patterns)
+    # Second, check if this siglum contains any of the kept suffixes:
+    for pattern in keep_patterns:
+        if pattern.search(base_siglum):
+            # If it does, then strip the suffix, recursively process the remainder of the siglum,
+            # and append the stripped suffix back onto the end of the output:
+            suffix = pattern.search(base_siglum).group()
+            base_siglum = base_siglum[:-len(suffix)]
+            return (get_base_siglum(base_siglum, ignore_patterns, keep_patterns) + suffix)
+    # If we get here, then the current siglum has none of the specified suffixes; return it as-is:
     return base_siglum
 
 def split_versional_witnesses(siglum: str, regex: re.Pattern):
@@ -269,6 +436,8 @@ def normalize_versional_sigla(wit_str: str):
                     versional_witness_regex = latin_version_pattern
                 elif version_prefix == "S":
                     versional_witness_regex = syriac_version_pattern
+                elif version_prefix == "CPA":
+                    versional_witness_regex = cpa_version_pattern
                 elif version_prefix == "K":
                     versional_witness_regex = coptic_version_pattern
                 elif version_prefix == "Sl":
@@ -294,3 +463,71 @@ def normalize_versional_sigla(wit_str: str):
             normalized_versional_sigla.append(normalized_siglum)
     normalized_versional_sigla_str = " ".join(normalized_versional_sigla)
     return normalized_versional_sigla_str
+
+"""
+Key function for sorting manuscript sigla.
+A siglum's key is a tuple with 8 elements:
+(1) the class of the witness (papyrus, majuscule, minuscule, lectionary);
+(2) the number of the witness within that class;
+(3) whether or not this witness is a supplement;
+(4) the string associated with the supplement, if any;
+(3) whether or not this witness is a lection;
+(4) the string associated with the lection, if any;
+(5) the type of suffix, if any, for the witness (corrector, alternate, lection, supplement); and
+(6) the string associated with the suffix, if any (e.g., for 01C2b, this is "2b").
+"""
+def manuscript_siglum_key(wit):
+    wit_string = wit.strip("*").replace("ᴷ", "")
+    wit_class = 0
+    wit_number = 0
+    wit_supplement_class = 0
+    wit_supplement_string = ""
+    wit_lection_class = 0
+    wit_lection_string = ""
+    wit_suffix_class = 0
+    wit_suffix_string = ""
+    # First, if this witness has a suffix, set its suffix class and strings appropriately,
+    # and then strip the suffix from the portion of the string to be processed:
+    if "C" in wit_string:
+        wit_suffix_class = 1
+        wit_suffix_string = wit_string.split("C")[1]
+        wit_suffix_string = "999" if wit_suffix_string == "" else wit_suffix_string # to ensure that the bare corrector suffix "C" follows all numbered corrector sigla
+        wit_string = wit_string.split("C")[0]
+    elif "A" in wit_string:
+        wit_suffix_class = 2
+        wit_suffix_string = wit_string.split("A")[1]
+        wit_suffix_string = "999" if wit_suffix_string == "" else wit_suffix_string # to ensure that the bare alternate suffix "A" follows all numbered corrector sigla
+        wit_string = wit_string.split("A")[0]
+    elif "K" in wit_string:
+        wit_suffix_class = 3
+        wit_suffix_string = wit_string.split("K")[1]
+        wit_suffix_string = "999" if wit_suffix_string == "" else wit_suffix_string # to ensure that the bare alternate suffix "K" follows all numbered corrector sigla
+        wit_string = wit_string.split("K")[0]
+    # Next, if this witness has a lection, set its lection class and strings appropriately,
+    # and then strip the lection from the portion of the string to be processed:
+    if "-" in wit_string:
+        wit_lection_class = 1
+        wit_lection_string = wit_string.split("-")[1]
+        wit_string = wit_string.split("-")[0]
+    # Next, if this witness has a supplement, set its supplement class and strings appropriately,
+    # and then strip the supplement from the portion of the string to be processed:
+    if "S" in wit_string:
+        wit_supplement_class = 1
+        wit_supplement_string = wit_string.split("S")[1]
+        wit_string = wit_string.split("S")[0]
+    # Finally, get the class and number of the base witness:
+    if wit_string[0] == 'P':
+        wit_class = 0
+        wit_number = int(wit_string[1:])
+    elif wit_string[0] == '0':
+        wit_class = 1
+        wit_number = int(wit_string[1:])
+    elif wit_string[0] == 'L':
+        wit_class = 3
+        wit_number = int(wit_string[1:])
+    else:
+        wit_class = 2
+        wit_number = int(wit_string)
+    # Then return a tuple containing these values:
+    siglum_key = (wit_class, wit_number, wit_supplement_class, wit_supplement_string, wit_lection_class, wit_lection_string, wit_suffix_class, wit_suffix_string)
+    return siglum_key

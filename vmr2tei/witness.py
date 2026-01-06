@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import time # to time calculations for users
 from lxml import etree as et # for reading TEI XML inputs
 
 from .common import *
@@ -12,89 +11,91 @@ class Witness:
     This corresponds to a witness element in the collation.
 
     Attributes:
-        n: The number or ID string of this Witness.
+        id: The number or ID string of this Witness.
         type: A string representing the type of witness. Examples include "papyrus", "minuscule", "majuscule", "corrector", "version", and "father".
-        key: A tuple representing the sort key of this Witness.
+        date_range: A list containing a minimum date and a maximum date for the origin of this witness.
     """
 
-    def __init__(self, id: str, witness_type: str = None, verbose: bool = False):
-        """Constructs a new Witness instance from the TEI XML input.
+    def __init__(self, _id: str, _type: str = None, _min_date: int = None, _max_date: int = None, verbose: bool = False):
+        """Constructs a new Witness instance with the specified fields."""
+        self.id = _id
+        self.type = _type
+        self.date_range = [_min_date, _max_date]
+        if verbose:
+            print(f"New Witness (id: {self.id}, type: {self.type})")
+
+    @classmethod
+    def from_xml(cls, xml: et.Element, verbose: bool = False):
+        """Constructs a new Witness instance from a VMR XML manuscript element.
 
         Args:
-            id: A string representing this witness's ID.
-            type: A string representing the type of witness. Examples include "papyrus", "minuscule", "majuscule", "corrector", "version", and "father".
+            xml: A VMR XML manuscript element representing this witness.
             verbose: An optional flag indicating whether or not to print status updates.
         """
-        t0 = time.time()
-        self.id = id
-        self.type = witness_type
-        self.key = self.get_key()
-        t1 = time.time()
-        if verbose:
-            print(f"New Witness (id: {self.id}, type: {self.type}) constructed in {(t1 - t0):0.4f}s.")
-
-    def __lt__(self, other):
-        return self.key < other.key
-
-    def __gt__(self, other):
-        return self.key > other.key
-
-    def __eq__(self, other):
-        return self.key == other.key
-
-    def get_key(self):
-        """Returns a tuple representing the sort key for this Witness.
-
-        Return: A tuple whose first entry reflects the type of this witness (with correctors being classified with the types of their base sigla),
-        whose second entry reflects the numerical index of this witness (or a high number if it has no numerical index),
-        and whose third entry is the remaining string left over after these first two components of the witness siglum are removed.
-        """
-        wit_id = self.id
-        wit_type = self.type
-        key_list = []
-        # If the type is unspecified or "corrector", then infer the type to use for the key from the ID:
-        if wit_type is None or wit_type == "corrector":
-            if papyrus_pattern.match(wit_id):
-                wit_type = "papyrus"
-            elif majuscule_pattern.match(wit_id):
-                wit_type = "majuscule"
-            elif minuscule_pattern.match(wit_id):
-                wit_type = "minuscule"
-            elif lectionary_pattern.match(wit_id):
-                wit_type = "lectionary"
-            elif version_start_pattern.match(wit_id):
-                wit_type = "version"
-            else:
-                wit_type = "father"
-        # The first sort key is based on the type of witness:
-        if wit_type == "papyrus":
-            key_list.append(1)
-            wit_id = wit_id[1:] # remove the P prefix
-        elif wit_type == "majuscule":
-            key_list.append(2)
-            wit_id = wit_id[1:] # remove the 0 prefix
-        elif wit_type == "minuscule":
-            key_list.append(3)
-        elif wit_type == "lectionary":
-            key_list.append(4)
-            wit_id = wit_id[1:] # remove the L prefix
-        elif wit_type == "version":
-            version = wit_id.split(":")[0]
-            wit_id = wit_id.split(":")[1]
-            key_list.append(5 + version_prefixes.index(version)) # further sort versional witnesses by their language
-        elif wit_type == "father":
-            key_list.append(5 + len(version_prefixes))
-        # The second sort key is based on the numerical index of the witness:
-        if minuscule_pattern.match(wit_id):
-            wit_number_str = minuscule_pattern.match(wit_id).group()
-            key_list.append(int(wit_number_str))
-            wit_id = wit_id[len(wit_number_str):] # remove the numerical part of the siglum
-        else:
-            key_list.append(10000)
-        # If any part of the string remains, then use that as the last part of the sort key:
-        if len(wit_id) > 0:
-            key_list.append(wit_id)
-        return tuple(key_list)
+        _id = xml.get("gaNum")
+        # Determine the type of this witness based on its docID:
+        _type = None
+        doc_id = int(xml.get("docID"))
+        if doc_id >= 10000 and doc_id < 50000:
+            _type = None
+        elif doc_id >= 50000 and doc_id < 80000:
+            # Apostolic fathers manuscripts
+            _type = "father"
+        elif doc_id >= 80000 and doc_id < 91500:
+            # Versions
+            _type = "version"
+        elif doc_id >= 91500 and doc_id < 92000:
+            # Fathers
+            _type = "father"
+        elif doc_id >= 100000 and doc_id < 200000:
+            # "Var" manuscripts
+            _type = None
+        elif doc_id >= 200000 and doc_id < 300000:
+            # Vetus Latina manuscripts
+            _type = None
+        elif doc_id >= 510000 and doc_id < 520000:
+            # T witnesses
+            _type = None
+        elif doc_id >= 520000 and doc_id < 530000:
+            # Ostraca
+            _type = None
+        elif doc_id >= 602000 and doc_id < 700000:
+            # Coptic manuscripts
+            _type = None
+        elif doc_id >= 700000 and doc_id < 720000:
+            # Syriac manuscripts
+            _type = None
+        elif doc_id >= 720000 and doc_id < 800000:
+            # Christian Palestinian Aramaic manuscripts
+            _type = None
+        elif doc_id >= 900000 and doc_id < 910000:
+            # Arabic manuscripts
+            _type = None
+        elif doc_id >= 910000 and doc_id < 920000:
+            # Armenian manuscripts
+            _type = None
+        elif doc_id >= 920000 and doc_id < 930000:
+            # Ethiopic manuscripts
+            _type = None
+        elif doc_id >= 930000 and doc_id < 940000:
+            # Slavonic manuscripts
+            _type = None
+        elif doc_id >= 940000 and doc_id < 941000:
+            # Gothic manuscripts
+            _type = None
+        elif doc_id >= 941000 and doc_id < 950000:
+            # Georgian manuscripts
+            _type = None
+        elif doc_id >= 1000000 and doc_id < 8000000:
+            # Critical editions
+            _type = "edition"
+        _min_date = int(xml.get("origEarly")) if xml.get("origEarly") is not None else None
+        _max_date = int(xml.get("origLate")) if xml.get("origLate") is not None else None
+        # If both the minimum and maximum date are det to 0, then treat them as null:
+        if _min_date == 0 and _max_date == 0:
+            _min_date = None
+            _max_date = None
+        return cls(_id, _type, _min_date, _max_date, verbose)        
 
     def to_xml(self):
         """Returns a witness TEI XML element constructed from this Witness.
@@ -104,5 +105,20 @@ class Witness:
         """
         xml = et.Element("{%s}witness" % tei_ns)
         xml.set("n", self.id)
-        xml.set("type", self.type)
+        if self.type is not None: 
+            xml.set("type", self.type)
+        # If either end of this witness's date range is non-null, then add an origDate element under the witness element:
+        if self.date_range[0] is not None or self.date_range[1] is not None:
+            orig_date = et.Element("{%s}origDate" % tei_ns)
+            if self.date_range[0] is not None and self.date_range[1] is not None:
+                if self.date_range[0] == self.date_range[1]:
+                    orig_date.set("when", str(self.date_range[0]))
+                else:
+                    orig_date.set("notBefore", str(self.date_range[0]))
+                    orig_date.set("notAfter", str(self.date_range[1]))
+            elif self.date_range[0] is not None:
+                orig_date.set("notBefore", str(self.date_range[0]))
+            else:
+                orig_date.set("notAfter", str(self.date_range[1]))
+            xml.append(orig_date)
         return xml
